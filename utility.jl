@@ -1,7 +1,8 @@
 # The used kalman parameter K is transformed from original kalman
 
 using LinearAlgebra, GaussianDistributions, Random
-using Convex, SCS
+# using CUDA_jll
+using Convex, SCS, MathOptInterface
 
 function preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in, MAX_TIME_IN=1000)
     global n=size(A_in,1)
@@ -10,22 +11,30 @@ function preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in, MAX_TIME_IN=1000)
     global MAX_TIME = MAX_TIME_IN
     global Λ, B, C, T = pre_transform(A_in, B_in, C_in)
     # global Λ = A_in
-    # global C = C_in
+    # global C_in
     # global T = Matrix(1.0I, n, n)
     # global B_in
-    global Σ_in
-    global Q_in
+    # global Σ_in
+    # global Q_in
     # O1A=obsv(Λ, C[1,:]')*Λ
-    global R_in
-    global K = get_kalman_K(Q_in ,R_in, Σ_in, B_in)
+    # global R_in
+    # global K = [1.7 0.1
+    # 0.541 -0.832
+    # 0.01 1.53
+    # 0.0148 2.4454]
+    global K=get_kalman_K(A_in, C_in, Q_in ,R_in, Σ_in, B_in)
     # @show K
+    # global K = [1.7 0.1
+    # 0.541 -0.832
+    # 0.01 1.53
+    # 0.0148 2.4454]
     global n_u = n
     # if !isempty(findall( <(1), broadcast(abs, diag(Λ)) ))
     #     n_u = findall( <(1), broadcast(abs, diag(Λ)) )[1]-1
     # else
     #     n_u = n
     # end
-    global Π, S = get_Mtildeinv()
+    global Π, S = get_Mtildeinv(Q_in, R_in)
     return Λ, T*K, C, T
 end
 
@@ -33,41 +42,15 @@ end
 
 
 ## pre transformation to form Diagonal state matrix
-function pre_transform(A, B, C)
-
-    # # CHECK rank
-    # if rank(A)<n ; println("A is not full-rank !"); return; end
-    # # if rank(C)<min(m,n) ; println("C is not full-rank !"); return; end
-    # # eigen decomposition
-    #
-    # EIG_A = eigen(A) # WARN:this operation will rewrite local A as a Diagonal matrix!!! # TODO: Change to jordan decomposition
-    # T = EIG_A.vectors # x new = T^(-1) x
-    # λ = EIG_A.values
-    # # T*Diagonal(λ)*inv(T)=A
-    # E_row = Matrix(1.0I, n, n)
-    #
-    # for i in 1:n
-    #     max_λ = maximum(broadcast(abs, λ[i:n]))
-    #     max_index = argmax(broadcast(abs, λ[i:n]))[1]+i-1
-    #     if max_λ > abs(λ[i]) # interchange two element
-    #         temp = E_row[max_index,:]
-    #         E_row[max_index,:] = E_row[i,:]
-    #         E_row[i,:] = temp
-    #         temp = λ[max_index]
-    #         λ[max_index] = λ[i]
-    #         λ[i] = temp
-    #     end
-    # end
-    # # Λ = Diagonal(λ)
-    # T = T*inv(E_row)
-    # write over original
-    T= [1.0	-0.0322072577361264 	0.0236972934966003 	-104818.391490053
-        0.0	-0.0894451246483580	-0.0919862406134817 	4764.38143136583
-        0.0	0.360078404080100	-0.257617806082263 	-22.0004197816739
-        0.0	1.00000000000000 	1.00000000000000 	1.00000000000000 ]
-    Λ = T^(-1)*A*T
-    C = C*T
-    B = T^(-1)*B
+function pre_transform(A_in, B_in, C_in)
+    T=Matrix(1.0I,n,n)
+#     T=[0.0498055805186480	0.500000000000000	-0.250000000000000	-0.250000000000000
+# 0	0.498055805186480	1.10679718105893	-1.10679718105893
+# 0	0	0.500000000000000	0.500000000000000
+# 0	0	-2.21359436211787	2.21359436211787]
+    Λ = T^(-1)*A_in*T
+    C = C_in*T
+    B = T^(-1)*B_in
 
 
     return Λ, B, C, T
@@ -76,7 +59,7 @@ end
 
 
 ## get Kalman K
-function get_kalman_K(Q_in,R_in,Σ_in, B_in)
+function get_kalman_K(A_in, C_in, Q_in, R_in, Σ_in, B_in)
     # simulate system data ####################################
 
     w=zeros(n,MAX_TIME)
@@ -115,7 +98,8 @@ function get_kalman_K(Q_in,R_in,Σ_in, B_in)
 
         Xhat[:,k]=Xhatpost[:,k]+Kmat[:,:,k]*(Y[:,k]-C_in*Xhatpost[:,k])
     end
-
+    plot(1:MAX_TIME, real(X')-real(Xhat'*inv(T)'), label = "inner estimated error", linecolor = "blue", line = (:solid, 1))
+    savefig("test_inner1")
     Plim=P[:,:,MAX_TIME]
     Pplus=A_in*Plim*A_in'+Q_in
     K_km=Pplus*C_in'*inv(C_in*Pplus*C_in'+R_in)
@@ -185,7 +169,7 @@ return Ps, S #, E
 end
 
 ## calculate the opt problem cov matrix ###################################################
-function get_Mtildeinv() # n_s is the number of stable states
+function get_Mtildeinv(Q_in, R_in) # n_s is the number of stable states
 eig_Π = eigen(Λ-K*C*Λ) # TODO: check the eigen values are distinct
 # if -10^(-3)<max(eig_Π.values)<0 # small negative values
 #     transfer_mat = eigen(Mtinv).vectors
@@ -234,14 +218,14 @@ global Qt = G_C*Q_in*G_C'+kron(R_in, ones(n,n))
 # Qt=((Qt+Qt')/2) #G[j,:,i]
 # @show Q
 # @show R
-# @show Qt
-global Πt=kron(Matrix(1.0I,m,m), Π)
+# @show imag(Qt)
+global Πt=kron(Matrix(1.0I,m,m), complex(Π))
 # @show Πt
 # Wt=dlyap(Πt,Qt)
 global Wt = sylvester(-inv(Πt), Matrix(Πt'), inv(Πt)*Qt)
 # Wt=(Wt+Wt')/2
 # @show Wt
-global r=rank(Wt, rtol=10^(-12))
+global r=rank(Wt, rtol=10^(-14))
 TW=eigen(Wt).vectors # T*Λ*Tinv=Wt
 L=sqrt(Diagonal(eigen(Wt).values[mn-r+1:end]))
 global D=inv(L)*inv(TW)[mn-r+1:end,:]*inv(Pt)
@@ -258,7 +242,7 @@ end ############################################################################
 function initialize_ζ(x0)
     ζ0=complex(zeros(mn,1))
     for i in 1:m
-        ζ0[n*(i-1)+1:n*i]=G[:,:,i]*x0
+        ζ0[n*(i-1)+1:n*i]=G[:,:,i]*inv(T)*x0
     end
     return ζ0
 end
@@ -271,18 +255,24 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     global r
     global D
     global Pt
-    x = Variable(n, 1)
+    x = Convex.Variable(n, 1)
     μ = ComplexVariable(mn, 1)
     ν = ComplexVariable(mn, 1)
     μ_new = ComplexVariable(r, 1)
 
     problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+γ*norm(ν, 1), Pt*ζ==S*x+μ+ν, μ_new==D*μ )
 
-    # Solve the problem by calling solve!
-    @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000, verbose=VERBOSE), warmstart=true) #
+    # Solve the problem by calling solve!  linear_solver = SCS.GpuIndirectSolver,
+    @time Convex.solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000, verbose=VERBOSE), warmstart=true) #
 
     # Check the status of the problem
-    println("problem status: ", problem.status) # :Optimal, :Infeasible, :unbounded etc.
-    println("optimal value: ", problem.optval)
-    return x.value, μ.value, ν.value
+    # println("problem status: ", problem.status) # :Optimal, :Infeasible, :unbounded etc.
+    # @show problem.status
+    if problem.status == MathOptInterface.OPTIMAL || problem.status == MathOptInterface.ALMOST_OPTIMAL
+        problem_status=true
+    else
+        problem_status=false
+    end
+    # println("optimal value: ", problem.optval)
+    return x.value, problem_status
 end

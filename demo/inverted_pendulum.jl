@@ -2,42 +2,44 @@ using LinearAlgebra, GaussianDistributions, Random
 using Plots; #pgfplotsx()  PGFPlotsX;
 include("utility.jl")
 
-m=1;M=1;l=1
+m=0.1;M=1;l=1
 g=9.8
-b=0
+bx = 0.05
+bt = 0.1
 
 
 
-Acon=[0 1 0 0 # A for continuous time
-    0 -b/M -m*g/M 0
-    0 0 0 1
-    0 b/M*l g*(M+m)/M*l 0]
+Acon=  [0.    1.    0.    0.
+        0.   -0.05 -0.98  0.1
+        0.    0.    0.    1.
+        0.    0.05 10.78 -1.1 ]
 Bcon=[0; 1/M; 0; -1/M/l]
-Ts=0.1
-A_in=exp(Acon*Ts) # sampling every 0.1 s
+Ts=0.02
+A_in=exp(Acon*Ts)
 
-B_in=[0.100000000000000	0.00500000000000000	-0.00164941490148451	-4.11010468697955e-05
-0	0.100000000000000	-0.0498055805186480	-0.00164941490148451
-0	0	0.103298829802969	0.00508220209373959
-0	0	0.0996111610372960	0.103298829802969]*Bcon
+B_in=[ 2.00000000e-02  1.99933382e-04 -1.35137313e-06 1.37052059e-07
+        0.00000000e+00  1.99900096e-02 -1.94575387e-04 1.85551482e-05
+        0.00000000e+00  7.41919822e-08  2.00143371e-02 1.98612613e-04
+        0.00000000e+00  9.92731564e-06  2.14097916e-03 1.97958303e-02]*Bcon
 
 C_in=[1 0 0 0
       1 0 0 0
-      1 0 0 0
+      0 0 1 0
       0 0 1 0]
 
 n=size(A_in,1)
 m=size(C_in,1)
-Q_in=Ts*Diagonal([0.1; 0.1; 0.01; 0.01])
-R_in=Ts*Diagonal([0.1; 0.1; 0.01; 0.01])
+Q_in=Diagonal([0.1; 0.1; 0.01; 0.01])
+R_in=Diagonal([0.1; 0.1; 0.01; 0.01])
 Σ_in=Q_in
 
-K_lqr= [-0.603524586303569	-1.67840806923021	-39.5143128608477	-9.72077388461956]
+K_lqr= [-8 -15 -115 -32]
+# [-0.603524586303569	-1.67840806923021	-39.5143128608477	-9.72077388461956]
 function LQGcontrol(X)
     u=-K_lqr*X # u is a scalar
     return u[1]
 end
-Λ, K, C, T = preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in)
+Λ, K, C, T = preprocess(A_in, B_in, C_in, Q_in, Ts^2*R_in, Σ_in)
 # T is the transformation matrix from non-Diagonal to Diagonal
 # K is the Kalman fixed gain
 x0=[ 2 ; -1 ; 0.3 ; 0 ]
@@ -56,8 +58,8 @@ a=0*(rand(MAX_TIME).-0.5)
 
 for k=1:MAX_TIME
     # original data
-    w[:,k]=rand(Gaussian(zeros(n),Q_in))
-    v[:,k]=rand(Gaussian(zeros(m),R_in))
+    w[:,k]=Ts*rand(Gaussian(zeros(n),Q_in))
+    v[:,k]=Ts*rand(Gaussian(zeros(m),R_in))
     if k==1
         X[:,k]=x0
     else
@@ -104,7 +106,7 @@ K_km=Pplus*C_in'*inv(C_in*Pplus*C_in'+R_in)
 
 
 ## original kalman
-time_scale=51
+time_scale=201
 Xkm = zeros(n,time_scale) # real state
 Xkm_hat = zeros(n,time_scale) # estimation
 Ykm = zeros(m,time_scale) # real state
@@ -147,7 +149,7 @@ for k=1:time_scale
     # elseif k<=5
     #     Xl[:,k]=A_in*Xl[:,k-1]+w[:,k-1]+B_in*LQGcontrol(Xkm_hat[:,k-1])
     else
-        Xl[:,k]=A_in*Xl[:,k-1]+w[:,k-1]+B_in*LQGcontrol(Xls[:,k-1])
+        Xl[:,k]=A_in*Xl[:,k-1]+w[:,k-1]+B_in*LQGcontrol(Xl[:,k-1])
     end
     Yl[:,k]=C_in*Xl[:,k]+v[:,k]
     Yla[:,k]=Yl[:,k]
@@ -157,12 +159,11 @@ for k=1:time_scale
     println("solving LASSO at k = ", k)
     # zeta estimator
     if k==1
-        # ζ[:,k]=update_ζ( zeros(mn,1), Yla[:,k], 0 )
-        ζ[:,k]=zeros(mn,1)
+        ζ[:,k]=initialize_ζ( zeros(n,1) )
     # elseif k<=5
     #     ζ[:,k]=update_ζ( ζ[:,k-1], Yla[:,k], LQGcontrol(Xkm_hat[:,k-1]) )
     else
-        ζ[:,k]=update_ζ( ζ[:,k-1], Yla[:,k], LQGcontrol(Xls[:,k-1]) )
+        ζ[:,k]=update_ζ( ζ[:,k-1], Yla[:,k], LQGcontrol(Xl[:,k-1]) )
     end
     # test_zero=zeros(n,1)
     # for i=1:m
@@ -171,14 +172,14 @@ for k=1:time_scale
     # @show norm(test_zero-Xkm_hat[:,k], Inf)
 
     # solve opt problem
-    γ = 100
+    γ = 1000
         x, μ, ν = solve_opt(ζ[:,k], γ, 0)
     @show maximum(broadcast(abs, ν))
-    if k<=5
-        Xls[:,k] = Xkm_hat[:,k]
-    else
-        Xls[:,k] = T*x
-    end
+    # if k<=5
+    #     Xls[:,k] = Xkm_hat[:,k]
+    # else
+    Xls[:,k] = T*x
+    # end
 
 end
 
@@ -205,11 +206,11 @@ end
 time_axis=[0:time_scale-1].*Ts
 # compare state
 # plot(time_axis, X[i,1:time_scale], label = "Oracle State", linecolor = "black", line = (:solid, 1))
-plot(time_axis, Xkm[:,1:time_scale]', label = "Kalman State")
-plot!(time_axis, Xls[:,1:time_scale]', label = "Kalman Estimation" )  #linecolor = "red", line = (:dot, 2)
+plot(time_axis, Xkm[:,1:time_scale]', label = "Kalman state")
+plot!(time_axis, Xl[:,1:time_scale]', label = "LASSO state", line = (:dot, 2))  #linecolor = "red", line = (:dot, 2)
 # compare error
-# plot(time_axis, Xkm[i,1:time_scale]-Xkm_hat[i,1:time_scale], label = "kalman est error", linecolor = "black", line = (:solid, 1))
-# plot!(time_axis, Xl[i,1:time_scale]-Xls[i,1:time_scale], label = "our est error", linecolor = "blue", line = (:dot, 2))
+plot(time_axis, Xkm[:,1:time_scale]'-Xkm_hat[:,1:time_scale]', label = "kalman est error", linecolor = "black", line = (:solid, 1))
+plot!(time_axis, Xl[:,1:time_scale]'-Xls[:,1:time_scale]', label = "our est error", linecolor = "blue", line = (:dot, 2),ylim=(-2,2))
 # compare state under control
 # plot(time_axis, Xl[i,1:time_scale], label = "my State", linecolor = "blue", line = (:solid, 1))
 # plot!(time_axis, Xls[i,1:time_scale], label = "my Estimation", linecolor = "blue", line = (:dot, 2))
