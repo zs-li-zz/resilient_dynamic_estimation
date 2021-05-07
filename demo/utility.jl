@@ -1,6 +1,6 @@
 # The used kalman parameter K is transformed from original kalman
 
-using LinearAlgebra, GaussianDistributions, Random, ControlSystems
+using LinearAlgebra, GaussianDistributions, Random
 using Convex, SCS
 
 function preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in, MAX_TIME_IN=1000)
@@ -272,7 +272,7 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+γ*norm(ν, 1), Pt*ζ==S*x+μ+ν, μ_new==D*μ )
 
     # Solve the problem by calling solve!
-    @time solve!(problem, SCS.Optimizer(max_iters=50000,verbose=VERBOSE), warmstart=true) #
+    @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000, verbose=VERBOSE), warmstart=true) #
 
     # Check the status of the problem
     println("problem status: ", problem.status) # :Optimal, :Infeasible, :unbounded etc.

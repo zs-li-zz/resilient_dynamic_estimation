@@ -171,7 +171,7 @@ for k=1:time_scale
     # @show norm(test_zero-Xkm_hat[:,k], Inf)
 
     # solve opt problem
-    γ = 10
+    γ = 100
         x, μ, ν = solve_opt(ζ[:,k], γ, 0)
     @show maximum(broadcast(abs, ν))
     if k<=5
@@ -201,15 +201,15 @@ end
 # Xkm=T_out*Xkm
 # Xkm_hat=T_out*Xkm_hat
 
-i=1
+
 time_axis=[0:time_scale-1].*Ts
 # compare state
 # plot(time_axis, X[i,1:time_scale], label = "Oracle State", linecolor = "black", line = (:solid, 1))
-# plot!(time_axis, Xkm[i,1:time_scale], label = "Kalman State", linecolor = "blue", line = (:solid, 1))
-# plot!(time_axis, Xls[i,1:time_scale], label = "Kalman Estimation", linecolor = "red", line = (:dot, 2))
+plot(time_axis, Xkm[:,1:time_scale]', label = "Kalman State")
+plot!(time_axis, Xls[:,1:time_scale]', label = "Kalman Estimation" )  #linecolor = "red", line = (:dot, 2)
 # compare error
-plot(time_axis, Xkm[i,1:time_scale]-Xkm_hat[i,1:time_scale], label = "kalman est error", linecolor = "black", line = (:solid, 1))
-plot!(time_axis, Xl[i,1:time_scale]-Xls[i,1:time_scale], label = "our est error", linecolor = "blue", line = (:dot, 2))
+# plot(time_axis, Xkm[i,1:time_scale]-Xkm_hat[i,1:time_scale], label = "kalman est error", linecolor = "black", line = (:solid, 1))
+# plot!(time_axis, Xl[i,1:time_scale]-Xls[i,1:time_scale], label = "our est error", linecolor = "blue", line = (:dot, 2))
 # compare state under control
 # plot(time_axis, Xl[i,1:time_scale], label = "my State", linecolor = "blue", line = (:solid, 1))
 # plot!(time_axis, Xls[i,1:time_scale], label = "my Estimation", linecolor = "blue", line = (:dot, 2))
