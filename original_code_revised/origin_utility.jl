@@ -1,7 +1,7 @@
 # The used kalman parameter K is transformed from original kalman
 
 using LinearAlgebra, GaussianDistributions, Random
-using Convex, SCS
+using Convex, SCS, MathOptInterface
 
 function preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in, MAX_TIME_IN=1000)
     global n=size(A_in,1)
@@ -216,10 +216,16 @@ global Πt=kron(Matrix(1.0I,m,m), Π)
 global Wt = sylvester(-inv(Πt), Matrix(Πt'), inv(Πt)*Qt)
 # Wt=(Wt+Wt')/2
 # @show Wt
-global r=rank(Wt, rtol=10^(-30))
+global r=rank(Wt, rtol=10^(-20))
 TW=eigen(Wt).vectors # T*Λ*Tinv=Wt
 L=sqrt(Diagonal(eigen(Wt).values[mn-r+1:end]))
 global D=inv(L)*inv(TW)[mn-r+1:end,:]*inv(Pt)
+global Nc=kron(Matrix(1.0I,m,m),[zeros(n_s,n_u) Matrix(1.0I,n_s,n_s)])
+global Wc=zeros(m*(n+n_s),m*(n+n_s))
+Wc[1:mn,1:mn]=Nc'*Nc
+Wc[1:mn,mn+1:end]=Nc'
+Wc[mn+1:end,1:mn]=Nc
+Wc[mn+1:end,mn+1:end]=Matrix(1.0I,m*n_s,m*n_s)
 
 # if norm(imag(Mtinv))<10^(-8)
 #     Mtinv=(Mtinv+Mtinv')/2
@@ -246,16 +252,11 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     global r
     global D
     global Pt
+    global Wc,Nc
     x = Variable(n, 1)
     μ = ComplexVariable(mn, 1)
     ν = ComplexVariable(mn, 1)
     μ_new = ComplexVariable(r, 1)
-    Nc=kron(Matrix(1.0I,m,m),[zeros(n_s,n_u) Matrix(1.0I,n_s,n_s)])
-    Wc=zeros(m*(n+n_s),m*(n+n_s))
-    Wc[1:mn,1:mn]=Nc'*Nc
-    Wc[1:mn,mn+1:end]=Nc'
-    Wc[mn+1:end,1:mn]=Nc
-    Wc[mn+1:end,mn+1:end]=Matrix(1.0I,m*n_s,m*n_s)
 
     obj_fun=(sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+quadform([μ;Nc*S*x],Wc)/2 #+γ*norm(ν, 1)
 
@@ -263,9 +264,13 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
 
     # Solve the problem by calling solve!
     @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000,verbose=VERBOSE), warmstart=true) #
-
+    if problem.status == MathOptInterface.OPTIMAL #|| problem.status == MathOptInterface.ALMOST_OPTIMAL
+        problem_status=true
+    else
+        problem_status=false
+    end
     # Check the status of the problem
     println("problem status: ", problem.status) # :Optimal, :Infeasible, :unbounded etc.
     println("optimal value: ", problem.optval)
-    return x.value, μ.value, ν.value
+    return x.value, problem_status
 end

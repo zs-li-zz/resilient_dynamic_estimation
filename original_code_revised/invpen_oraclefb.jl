@@ -119,9 +119,13 @@ for k=1:time_scale
 
     # solve opt problem
     γ = 100
-    x, μ, ν = solve_opt(ζ[:,k], γ, 0)
-    # @show maximum(broadcast(abs, ν))
-    Xls[:,k] = T*x
+    x, problem_status= solve_opt(ζ[:,k], γ, 0)
+    println("problem_status",problem_status)
+    if problem_status || k==1
+        Xls[:,k] = T*x
+    else
+        Xls[:,k] = A_in*Xls[:,k-1]+B_in*LQGcontrol(X[:,k-1]) # soluation not reliable, use prediction
+    end
     println("     real x= ", X[:,k])
     println("estimated x= ", Xls[:,k])
     # end
