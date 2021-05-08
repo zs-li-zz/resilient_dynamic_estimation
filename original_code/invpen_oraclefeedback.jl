@@ -120,7 +120,7 @@ for k=1:time_scale
     # solve opt problem
     γ = 100
     x, μ, ν = solve_opt(ζ[:,k], γ, 0)
-    @show maximum(broadcast(abs, ν))
+    # @show maximum(broadcast(abs, ν))
     Xls[:,k] = T*x
     println("     real x= ", X[:,k])
     println("estimated x= ", Xls[:,k])
@@ -138,8 +138,8 @@ time_axis=[0:time_scale-1].*Ts
 # plot!(time_axis, Xkm[i,1:time_scale], label = "Kalman State", linecolor = "blue", line = (:solid, 1))
 # plot!(time_axis, Xls[i,1:time_scale], label = "Kalman Estimation", linecolor = "red", line = (:dot, 2))
 # compare error
-# plot(time_axis, X[i,1:time_scale]-Xkm_hat[i,1:time_scale], label = "kalman est error", linecolor = "black", line = (:solid, 1))
-# plot!(time_axis, X[i,1:time_scale]-Xls[i,1:time_scale], label = "our est error", linecolor = "blue", line = (:dot, 2))
+plot(time_axis, X[:,1:time_scale]'-Xkm_hat[:,1:time_scale]', label = "kalman est error", linecolor = "black", line = (:solid, 1))
+plot!(time_axis, X[:,1:time_scale]'-Xls[:,1:time_scale]', label = "our est error", linecolor = "blue", line = (:dot, 2))
 # compare state under control
 plot(time_axis, X[:,1:time_scale]', label = "State", linecolor = "black", line = (:solid, 1))
 plot!(time_axis, Xls[:,1:time_scale]', label = "my Estimation", linecolor = "blue", line = (:dot, 2))
