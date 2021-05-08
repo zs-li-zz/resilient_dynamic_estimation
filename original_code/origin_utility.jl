@@ -219,23 +219,22 @@ global Wt = sylvester(-inv(Πt), Matrix(Πt'), inv(Πt)*Qt)
 
 
 global Nc=kron(Matrix(1.0I,m,m),[zeros(n_s,n_u) Matrix(1.0I,n_s,n_s)])
-Mtinv=inv(Pt*Wt*Pt')
+Mtinv=pinv(Pt*Wt*Pt')
 # @show Mtinv-Mtinv'
-# global Mtinv=(Mtinv+Mtinv')/2
+global Mtinv=(Mtinv+Mtinv')/2
 global Wc=zeros(m*(n+n_s),m*(n+n_s))
 Wc[1:mn,1:mn]=Mtinv+Nc'*Nc
 Wc[1:mn,mn+1:end]=Nc'
 Wc[mn+1:end,1:mn]=Nc
 Wc[mn+1:end,mn+1:end]=Matrix(1.0I,m*n_s,m*n_s)
-Wc=(Wc+Wc')/2
+# Wc=(Wc+Wc')/2
 @show eigen(Wc).values
 
-global r=rank(Wc, rtol=10^(-14))
+global r=rank(Wc, rtol=10^(-10))
 TW=eigen(Wc).vectors # T*Λ*Tinv=Wt
 global TWL=TW[:,m*(n+n_s)-r+1:end]
 global TWR=inv(TW)[m*(n+n_s)-r+1:end,:]
 global L=sqrt(Diagonal(eigen(Wc).values[m*(n+n_s)-r+1:end]))
-Wc=(Wc+Wc')/2
 @show TWL*L*L*TWR-Wc
 @show TWL*L*L*TWL'-Wc
 # global D=L*TWR
@@ -270,14 +269,14 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
 
     # problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+γ*norm(ν, 1), Pt*ζ==S*x+μ+ν, μ_new==D*μ ) +γ*norm(ν, 1) +ν
     obj_fun=(sumsquares(real(big_μ_l))+sumsquares(imag(big_μ_l)))/2
-    constraint = [Pt*ζ==S*x+μ, big_μ_l==L*TWR*big_μ, big_μ[1:mn]==μ, big_μ[mn+1,end]==Nc*S*x]
+    constraint = [big_μ_l==L*TWL'*big_μ, big_μ[1:mn]==Pt*ζ-S*x, big_μ[mn+1,end]==Nc*S*x]
     # obj_fun=quadform(big_μ,Wc)
     # constraint = [Pt*ζ==S*x+μ, big_μ[1:mn]==μ, big_μ[mn+1,end]==Nc*S*x]
 
     problem = minimize(obj_fun, constraint)
     # Solve the problem by calling solve!
     @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000,verbose=VERBOSE), warmstart=true) #
-    # @show big_μ_l.value'*big_μ_l.value-big_μ.value'*Wc*big_μ.value
+    @show big_μ_l.value'*big_μ_l.value-big_μ.value'*Wc*big_μ.value
 
     # Check the status of the problem
     println("problem status: ", problem.status) # :Optimal, :Infeasible, :unbounded etc.
