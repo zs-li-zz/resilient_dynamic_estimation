@@ -34,11 +34,11 @@ end
 
 ## pre transformation to form Diagonal state matrix
 function pre_transform(A, B, C)
-    T=rand(4,4)
-#     T=[0.0498055805186480	0.500000000000000	-0.250000000000000	-0.250000000000000
-# 0	0.498055805186480	1.10679718105893	-1.10679718105893
-# 0	0	0.500000000000000	0.500000000000000
-# 0	0	-2.21359436211787	2.21359436211787]
+    T = [1.00000000000000	-0.0322072577361264	0.0236972934966003 	-104818.391490053
+        0.00000000000000	-0.0894451246483580	-0.0919862406134817 	4764.38143136583
+        0.00000000000000	0.360078404080100	-0.257617806082263 	-22.0004197816739
+        0.00000000000000	1.00000000000000 	1.00000000000000 	1.00000000000000 ]
+    # T=rand(n,n)
     Λ = T^(-1)*A*T
     C = C*T
     B = T^(-1)*B
@@ -215,7 +215,7 @@ global Πt=kron(Matrix(1.0I,m,m), Π)
 global Wt = sylvester(-inv(Πt), Matrix(Πt'), inv(Πt)*Qt)
 # Wt=(Wt+Wt')/2
 # @show Wt
-global r=rank(Wt, rtol=10^(-20))
+global r=rank(Wt, rtol=10^(-14))
 TW=eigen(Wt).vectors # T*Λ*Tinv=Wt
 L=sqrt(Diagonal(eigen(Wt).values[mn-r+1:end]))
 global D=inv(L)*inv(TW)[mn-r+1:end,:]*inv(Pt)
@@ -250,7 +250,7 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     ν = ComplexVariable(mn, 1)
     μ_new = ComplexVariable(r, 1)
 
-    problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2, Pt*ζ==S*x+μ, μ_new==D*μ )
+    problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+γ*norm(ν, 1), Pt*ζ==S*x+μ+ν, μ_new==D*μ )
 
     # Solve the problem by calling solve!
     @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000,verbose=VERBOSE), warmstart=true) #
