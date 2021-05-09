@@ -5,7 +5,7 @@ with oracle feedback, used to quantify the estimation error
 =#
 
 using LinearAlgebra, GaussianDistributions, Random
-using Plots; #pgfplotsx()  PGFPlotsX;
+using Plots; JLD #pgfplotsx()  PGFPlotsX;
 include("origin_utility.jl")
 
 m=0.1;M=1;l=1
@@ -49,28 +49,35 @@ end
 x0=[ 0 ; 1 ; 0 ; 1 ]
 
 ## get data
-time_scale = 201
+time_scale = 101
+w=load("w.jld","w")
+v=load("v.jld","v")
+X=load("X.jld","X")
+Y=load("Y.jld","Y")
+Ya=load("Ya.jld","Ya")
 
-w=zeros(n,time_scale)
-v=zeros(m,time_scale)
-X=zeros(n,time_scale)
-Y=zeros(m,time_scale)
-Ya=zeros(m,time_scale)
+# w=zeros(n,time_scale)
+# v=zeros(m,time_scale)
+# X=zeros(n,time_scale)
+# Y=zeros(m,time_scale)
+# Ya=zeros(m,time_scale)
 
-a=0*(rand(time_scale).-0.5)
-
-for k=1:time_scale
-    w[:,k]=rand(Gaussian(zeros(n),Q_in))
-    v[:,k]=rand(Gaussian(zeros(m),R_in))
-    if k==1
-        X[:,k]=x0
-    else
-        X[:,k]=A_in*X[:,k-1]+w[:,k-1]+B_in*LQGcontrol(X[:,k-1])
-    end
-    Y[:,k]=C_in*X[:,k]+v[:,k]
-    Ya[:,k]=Y[:,k]
-    Ya[3,k]=Y[3,k]+a[k]
+# a=4*(rand(time_scale).-0.5)
+#
+# for k=1:time_scale
+#     w[:,k]=rand(Gaussian(zeros(n),Q_in))
+#     v[:,k]=rand(Gaussian(zeros(m),R_in))
+#     if k==1
+#         X[:,k]=x0
+#     else
+#         X[:,k]=A_in*X[:,k-1]+w[:,k-1]+B_in*LQGcontrol(X[:,k-1])
+#     end
+#     Y[:,k]=C_in*X[:,k]+v[:,k]
+    # Ya[:,k]=Y[:,k]
+    # Ya[3,k]=Y[3,k]+a[k]
 end
+
+
 # i=3
 # time_axis=[0:MAX_TIME-1].*0.1
 # state
@@ -86,7 +93,7 @@ for k=1:time_scale
     if k==1
         Xkm_hat[:,k]=x0
     else
-        Xkm_hat[:,k]=(A_in-K_km*C_in*A_in)*Xkm_hat[:,k-1]+(I-K_km*C_in)*B_in*LQGcontrol(X[:,k-1])+K_km*Y[:,k]
+        Xkm_hat[:,k]=(A_in-K_km*C_in*A_in)*Xkm_hat[:,k-1]+(I-K_km*C_in)*B_in*LQGcontrol(X[:,k-1])+K_km*Ya[:,k]
     end
 
 end
@@ -118,9 +125,10 @@ for k=1:time_scale
     # @show norm(T*test_zero-Xkm_hat[:,k], Inf)
 
     # solve opt problem
-    γ = 100
+    γ = 10
     x, problem_status= solve_opt(ζ[:,k], γ, 0)
     println("problem_status",problem_status)
+    # Xls[:,k] = T*x
     if problem_status || k==1
         Xls[:,k] = T*x
     else
@@ -148,4 +156,4 @@ plot!(time_axis, X[:,1:time_scale]'-Xls[:,1:time_scale]', label = "our est error
 plot(time_axis, X[:,1:time_scale]', label = "State", linecolor = "black", line = (:solid, 1))
 plot!(time_axis, Xls[:,1:time_scale]', label = "my Estimation", linecolor = "blue", line = (:dot, 2))
 plot!(time_axis, Xkm_hat[:,1:time_scale]', label = "Kalman State", linecolor = "red", line = (:solid, 1))
-plot!(ylim=(-2,8))
+# plot!(ylim=(-2,5))

@@ -264,7 +264,7 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
 
     # Solve the problem by calling solve!
     @time solve!(problem, Mosek.Optimizer(), warmstart=true) #
-    if problem.status == MathOptInterface.OPTIMAL || problem.status == MathOptInterface.ALMOST_OPTIMAL
+    if problem.status == MathOptInterface.OPTIMAL #|| problem.status == MathOptInterface.ALMOST_OPTIMAL
         problem_status=true
     else
         problem_status=false

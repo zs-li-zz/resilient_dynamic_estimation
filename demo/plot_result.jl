@@ -1,8 +1,8 @@
 using PGFPlotsX
 latexengine!(PGFPlotsX.PDFLATEX)
-time_scale=51
+time_scale=101
 i=3
-time_axis=(0:time_scale-1)*0.1
+time_axis=(0:time_scale-1)*0.02
 figure = @pgf TikzPicture(
         Axis(
             PlotInc(
