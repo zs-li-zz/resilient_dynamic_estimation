@@ -1,7 +1,7 @@
 # The used kalman parameter K is transformed from original kalman
 
 using LinearAlgebra, GaussianDistributions, Random
-using Convex, SCS, MathOptInterface
+using Convex, SCS, MathOptInterface, Mosek, MosekTools
 
 function preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in, MAX_TIME_IN=1000)
     global n=size(A_in,1)
@@ -216,7 +216,7 @@ global Πt=kron(Matrix(1.0I,m,m), Π)
 global Wt = sylvester(-inv(Πt), Matrix(Πt'), inv(Πt)*Qt)
 # Wt=(Wt+Wt')/2
 # @show Wt
-global r=rank(Wt, rtol=10^(-20))
+global r=rank(Wt, rtol=10^(-30))
 TW=eigen(Wt).vectors # T*Λ*Tinv=Wt
 L=sqrt(Diagonal(eigen(Wt).values[mn-r+1:end]))
 global D=inv(L)*inv(TW)[mn-r+1:end,:]*inv(Pt)
@@ -258,13 +258,13 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     ν = ComplexVariable(mn, 1)
     μ_new = ComplexVariable(r, 1)
 
-    obj_fun=(sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+quadform([μ;Nc*S*x],Wc)/2 #+γ*norm(ν, 1)
+    obj_fun=(sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+quadform([μ;Nc*S*x],Wc)/2 +γ*norm(ν, 1)
 
-    problem = minimize(obj_fun, Pt*ζ==S*x+μ, μ_new==D*μ ) #+ν
+    problem = minimize(obj_fun, Pt*ζ==S*x+μ+ν, μ_new==D*μ ) #+ν
 
     # Solve the problem by calling solve!
-    @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000,verbose=VERBOSE), warmstart=true) #
-    if problem.status == MathOptInterface.OPTIMAL #|| problem.status == MathOptInterface.ALMOST_OPTIMAL
+    @time solve!(problem, Mosek.Optimizer(), warmstart=true) #
+    if problem.status == MathOptInterface.OPTIMAL || problem.status == MathOptInterface.ALMOST_OPTIMAL
         problem_status=true
     else
         problem_status=false

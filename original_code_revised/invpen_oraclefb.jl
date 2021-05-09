@@ -46,10 +46,10 @@ end
 Λ, K_km, C, T = preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in)
 # T is the transformation matrix from non-Diagonal to Diagonal
 # K is the Kalman fixed gain
-x0=[ 0 ; 2 ; 0.4 ; 0 ]
+x0=[ 0 ; 1 ; 0 ; 1 ]
 
 ## get data
-time_scale = 101
+time_scale = 201
 
 w=zeros(n,time_scale)
 v=zeros(m,time_scale)
@@ -69,7 +69,7 @@ for k=1:time_scale
     end
     Y[:,k]=C_in*X[:,k]+v[:,k]
     Ya[:,k]=Y[:,k]
-    Ya[4,k]=Y[4,k]+a[k]
+    Ya[3,k]=Y[3,k]+a[k]
 end
 # i=3
 # time_axis=[0:MAX_TIME-1].*0.1
@@ -86,7 +86,7 @@ for k=1:time_scale
     if k==1
         Xkm_hat[:,k]=x0
     else
-        Xkm_hat[:,k]=(A_in-K_km*C_in*A_in)*Xkm_hat[:,k-1]+(I-K_km*C_in)*B_in*LQGcontrol(X[:,k-1])+K_km*Ya[:,k]
+        Xkm_hat[:,k]=(A_in-K_km*C_in*A_in)*Xkm_hat[:,k-1]+(I-K_km*C_in)*B_in*LQGcontrol(X[:,k-1])+K_km*Y[:,k]
     end
 
 end
@@ -124,7 +124,7 @@ for k=1:time_scale
     if problem_status || k==1
         Xls[:,k] = T*x
     else
-        Xls[:,k] = A_in*Xls[:,k-1]+B_in*LQGcontrol(X[:,k-1]) # soluation not reliable, use prediction
+        Xls[:,k] = Xkm_hat[:,k]#A_in*Xls[:,k-1]+B_in*LQGcontrol(X[:,k-1]) # soluation not reliable, use prediction
     end
     println("     real x= ", X[:,k])
     println("estimated x= ", Xls[:,k])
