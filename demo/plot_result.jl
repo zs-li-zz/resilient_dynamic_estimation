@@ -7,11 +7,11 @@ figure = @pgf TikzPicture(
         Axis(
             PlotInc(
             { color => "black", },
-            Table([ time_axis, X[i,1:time_scale] ])
+            Table([ time_axis, Y[i,1:time_scale] ])
                 ),
             PlotInc(
             { color => "black", },
-            Table([ time_axis, Xkm_hat[i,1:time_scale] ])
+            Table([ time_axis, Ya[i,1:time_scale] ])
                 ),
             # PlotInc(
             # { color => "blue", },
@@ -19,7 +19,7 @@ figure = @pgf TikzPicture(
             #     ),
             PlotInc(
             { color => "blue", },
-            Table([ time_axis, Xls[i,1:time_scale] ])
+            Table([ time_axis, Ya[i,1:time_scale]-Y[i,1:time_scale] ])
                 )
                 )
                 )

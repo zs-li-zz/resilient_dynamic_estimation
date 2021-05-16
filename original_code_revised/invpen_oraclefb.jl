@@ -5,7 +5,7 @@ with oracle feedback, used to quantify the estimation error
 =#
 
 using LinearAlgebra, GaussianDistributions, Random
-using Plots; JLD #pgfplotsx()  PGFPlotsX;
+using Plots, JLD #pgfplotsx()  PGFPlotsX;
 include("origin_utility.jl")
 
 m=0.1;M=1;l=1
@@ -54,17 +54,17 @@ w=load("w.jld","w")
 v=load("v.jld","v")
 X=load("X.jld","X")
 Y=load("Y.jld","Y")
-Ya=load("Ya.jld","Ya")
+# Ya=load("Ya.jld","Ya")
 
 # w=zeros(n,time_scale)
 # v=zeros(m,time_scale)
 # X=zeros(n,time_scale)
 # Y=zeros(m,time_scale)
-# Ya=zeros(m,time_scale)
+Ya=zeros(m,time_scale)
 
-# a=4*(rand(time_scale).-0.5)
+a=2*(rand(time_scale).-0.5)
 #
-# for k=1:time_scale
+for k=1:time_scale
 #     w[:,k]=rand(Gaussian(zeros(n),Q_in))
 #     v[:,k]=rand(Gaussian(zeros(m),R_in))
 #     if k==1
@@ -73,8 +73,8 @@ Ya=load("Ya.jld","Ya")
 #         X[:,k]=A_in*X[:,k-1]+w[:,k-1]+B_in*LQGcontrol(X[:,k-1])
 #     end
 #     Y[:,k]=C_in*X[:,k]+v[:,k]
-    # Ya[:,k]=Y[:,k]
-    # Ya[3,k]=Y[3,k]+a[k]
+    Ya[:,k]=Y[:,k]
+    Ya[3,k]=Y[3,k]+a[k]
 end
 
 

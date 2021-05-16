@@ -61,6 +61,7 @@ function pre_transform(A, B, C)
     # # Λ = Diagonal(λ)
     # T = T*inv(E_row)
     # write over original
+    # T=Matrix(1.0I,n,n)
     T= [1.0	-0.0322072577361264 	0.0236972934966003 	-104818.391490053
         0.0	-0.0894451246483580	-0.0919862406134817 	4764.38143136583
         0.0	0.360078404080100	-0.257617806082263 	-22.0004197816739
@@ -91,9 +92,9 @@ function get_kalman_K(Q_in,R_in,Σ_in, B_in)
         if k==1
             X[:,k]=rand(Gaussian(zeros(n),Σ_in))  # 初值随机生成
         else
-            X[:,k]=Λ*X[:,k-1]+T^(-1)*w[:,k-1]
+            X[:,k]=A_in*X[:,k-1]+w[:,k-1]
         end
-        Y[:,k]=C*X[:,k]+v[:,k]
+        Y[:,k]=C_in*X[:,k]+v[:,k]
     end
 
     Xhat=complex(zeros(n,MAX_TIME)) # Xhat(:,k) means \hat{x} (k)
@@ -197,9 +198,9 @@ global Π = Diagonal(eig_Π.values) # TODO 2: image numbers
 global V = eig_Π.vectors
 
 
-# @show K
+@show K
 # @show C
-# @show V, rank(V)
+@show V, rank(V)
 # @show V*Π*inv(V)
 # @show Λ - K * C * Λ
 # @show V*Π*inv(V)-(Λ-K*C*Λ)
@@ -230,7 +231,7 @@ for i in 1:m
     G_C[(i-1)*n+1:i*n, :] = G[:,:,i]-ones(n,1)*C[i,:]'
 end
 
-global Qt = G_C*Q_in*G_C'+kron(R_in, ones(n,n))
+global Qt = G_C*(inv(T))*Q_in*(inv(T)')*G_C'+kron(R_in, ones(n,n))
 # Qt=((Qt+Qt')/2) #G[j,:,i]
 # @show Q
 # @show R
@@ -263,6 +264,11 @@ function initialize_ζ(x0)
     return ζ0
 end
 
+function update_transformed_kalman(xhat,u,y)
+    return (Λ-K*C*Λ)*xhat+(I-K*C)*B*u[1]+K*y
+end
+
+
 function update_ζ(ζ, y, u)
     return kron(Diagonal(1.0I,m),Π)*ζ + kron(Diagonal(1.0I,m),ones(n,1))*y + G_C*B*u[1]
 end
@@ -276,7 +282,7 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     ν = ComplexVariable(mn, 1)
     μ_new = ComplexVariable(r, 1)
 
-    problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2+γ*norm(ν, 1), Pt*ζ==S*x+μ+ν, μ_new==D*μ )
+    problem = minimize((sumsquares(real(μ_new))+sumsquares(imag(μ_new)))/2, Pt*ζ==S*x+μ, μ_new==D*μ )# +γ*norm(ν, 1) +ν
 
     # Solve the problem by calling solve!
     @time solve!(problem, SCS.Optimizer(linear_solver = SCS.DirectSolver, max_iters=100000, verbose=VERBOSE), warmstart=true) #

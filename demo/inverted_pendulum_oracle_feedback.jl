@@ -34,8 +34,8 @@ C_in=[1 0 0 0
 
 n=size(A_in,1)
 m=size(C_in,1)
-Q_in=Ts*Diagonal([0.01; 0.01; 0.01; 0.01])
-R_in=Ts*Diagonal([0.01; 0.01; 0.01; 0.01])
+Q_in=Ts^2*Diagonal([0.01; 0.01; 0.01; 0.01])
+R_in=Ts^2*Diagonal([0.01; 0.01; 0.01; 0.01])
 Σ_in=Q_in
 
 K_lqr= [-0.603524586303569	-1.67840806923021	-39.5143128608477	-9.72077388461956]
@@ -57,7 +57,7 @@ X=zeros(n,time_scale)
 Y=zeros(m,time_scale)
 Ya=zeros(m,time_scale)
 
-a=10*(rand(time_scale).-0.5)
+a=0*(rand(time_scale).-0.5)
 
 for k=1:time_scale
     w[:,k]=rand(Gaussian(zeros(n),Q_in))
@@ -82,21 +82,26 @@ end
 
 ## original kalman
 Xkm_hat = zeros(n,time_scale)
+Xtkm_hat= zeros(n,time_scale)
 for k=1:time_scale
     if k==1
-        Xkm_hat[:,k]=zeros(n,1)
+        Xkm_hat[:,k]=x0
+        Xtkm_hat[:,k]=inv(T)*x0
     else
         Xkm_hat[:,k]=(A_in-K_km*C_in*A_in)*Xkm_hat[:,k-1]+(I-K_km*C_in)*B_in*LQGcontrol(X[:,k-1])+K_km*Ya[:,k]
+        Xtkm_hat[:,k]=update_transformed_kalman(Xtkm_hat[:,k-1],LQGcontrol(X[:,k-1]),Ya[:,k])
     end
-
+    println("kalman and tkalman DIFF: ", Xkm_hat[:,k]-T*Xtkm_hat[:,k])
 end
 
 ## lasso
 ζ=complex(zeros(mn,time_scale))
 Xls = zeros(n,time_scale)
 
-F=complex(zeros(n,n,m));
+F=complex(zeros(n,n,m))
+V_=eigen(A_in-K_km*C_in*A_in).vectors
 for i=1:m
+    # F[:,:,i]=V_*Diagonal(V_^(-1)*K_km[:,i])
     F[:,:,i]=V*Diagonal(V^(-1)*K[:,i])
 end
 
@@ -105,22 +110,22 @@ for k=1:time_scale
     println("solving LASSO at k = ", k)
     # zeta estimator
     if k==1
-        ζ[:,k]=zeros(mn,1)
+        ζ[:,k]=initialize_ζ( inv(T)*x0 )
     # elseif k<=5
     #     ζ[:,k]=update_ζ( ζ[:,k-1], Yla[:,k], LQGcontrol(Xkm_hat[:,k-1]) )
     else
         ζ[:,k]=update_ζ( ζ[:,k-1], Ya[:,k], LQGcontrol(X[:,k-1]) )
     end
-    # test_zero=zeros(n,1)
-    # for i=1:m
-    #     test_zero=test_zero+F[:,:,i]*ζ[(i-1)*n+1:i*n, k]
-    # end
-    # @show norm(test_zero-Xkm_hat[:,k], Inf)
+    test_zero=zeros(n,1)
+    for i=1:m
+        test_zero=test_zero+F[:,:,i]*ζ[(i-1)*n+1:i*n, k]
+    end
+    @show norm(test_zero-Xkm_hat[:,k], Inf)
 
     # solve opt problem
-    γ = 1
+    γ = 100
     x, μ, ν = solve_opt(ζ[:,k], γ, 0)
-    @show maximum(broadcast(abs, ν))
+    # @show maximum(broadcast(abs, ν))
     # if k<=3
     #     Xls[:,k] = Xkm_hat[:,k]
     # else
@@ -143,6 +148,6 @@ time_axis=[0:time_scale-1].*Ts
 # plot(time_axis, X[i,1:time_scale]-Xkm_hat[i,1:time_scale], label = "kalman est error", linecolor = "black", line = (:solid, 1))
 # plot!(time_axis, X[i,1:time_scale]-Xls[i,1:time_scale], label = "our est error", linecolor = "blue", line = (:dot, 2))
 # compare state under control
-plot(time_axis, X[i,1:time_scale], label = "State", linecolor = "black", line = (:solid, 1))
-plot!(time_axis, Xls[i,1:time_scale], label = "my Estimation", linecolor = "blue", line = (:dot, 2))
-plot!(time_axis, Xkm_hat[i,1:time_scale], label = "Kalman State", linecolor = "red", line = (:solid, 1))
+plot(time_axis, X[:,1:time_scale]', label = "State", linecolor = "black", line = (:solid, 1))
+plot!(time_axis, Xls[:,1:time_scale]', label = "my Estimation", linecolor = "blue", line = (:dot, 2))
+plot!(time_axis, Xkm_hat[:,1:time_scale]', label = "Kalman State", linecolor = "red", line = (:solid, 1))

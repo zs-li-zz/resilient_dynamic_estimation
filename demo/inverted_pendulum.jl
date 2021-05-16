@@ -29,8 +29,8 @@ C_in=[1 0 0 0
 
 n=size(A_in,1)
 m=size(C_in,1)
-Q_in=Diagonal([0.1; 0.1; 0.01; 0.01])
-R_in=Diagonal([0.1; 0.1; 0.01; 0.01])
+Q_in=Ts^2*Diagonal([0.1; 0.1; 0.01; 0.01])
+R_in=Ts^2*Diagonal([0.1; 0.1; 0.01; 0.01])
 Σ_in=Q_in
 
 K_lqr= [-8 -15 -115 -32]
@@ -39,7 +39,7 @@ function LQGcontrol(X)
     u=-K_lqr*X # u is a scalar
     return u[1]
 end
-Λ, K, C, T = preprocess(A_in, B_in, C_in, Q_in, Ts^2*R_in, Σ_in)
+Λ, K, C, T = preprocess(A_in, B_in, C_in, Q_in, R_in, Σ_in)
 # T is the transformation matrix from non-Diagonal to Diagonal
 # K is the Kalman fixed gain
 x0=[ 2 ; -1 ; 0.3 ; 0 ]
@@ -58,8 +58,8 @@ a=0*(rand(MAX_TIME).-0.5)
 
 for k=1:MAX_TIME
     # original data
-    w[:,k]=Ts*rand(Gaussian(zeros(n),Q_in))
-    v[:,k]=Ts*rand(Gaussian(zeros(m),R_in))
+    w[:,k]=rand(Gaussian(zeros(n),Q_in))
+    v[:,k]=rand(Gaussian(zeros(m),R_in))
     if k==1
         X[:,k]=x0
     else
@@ -172,9 +172,9 @@ for k=1:time_scale
     # @show norm(test_zero-Xkm_hat[:,k], Inf)
 
     # solve opt problem
-    γ = 1000
-        x, μ, ν = solve_opt(ζ[:,k], γ, 0)
-    @show maximum(broadcast(abs, ν))
+    γ = 100
+    x, μ, ν = solve_opt(ζ[:,k], γ, 0)
+    # @show maximum(broadcast(abs, ν))
     # if k<=5
     #     Xls[:,k] = Xkm_hat[:,k]
     # else
@@ -210,7 +210,7 @@ plot(time_axis, Xkm[:,1:time_scale]', label = "Kalman state")
 plot!(time_axis, Xl[:,1:time_scale]', label = "LASSO state", line = (:dot, 2))  #linecolor = "red", line = (:dot, 2)
 # compare error
 plot(time_axis, Xkm[:,1:time_scale]'-Xkm_hat[:,1:time_scale]', label = "kalman est error", linecolor = "black", line = (:solid, 1))
-plot!(time_axis, Xl[:,1:time_scale]'-Xls[:,1:time_scale]', label = "our est error", linecolor = "blue", line = (:dot, 2),ylim=(-2,2))
+plot!(time_axis, Xl[:,1:time_scale]'-Xls[:,1:time_scale]', label = "our est error", linecolor = "blue", line = (:dot, 2),ylim=(-5,5))
 # compare state under control
 # plot(time_axis, Xl[i,1:time_scale], label = "my State", linecolor = "blue", line = (:solid, 1))
 # plot!(time_axis, Xls[i,1:time_scale], label = "my Estimation", linecolor = "blue", line = (:dot, 2))
