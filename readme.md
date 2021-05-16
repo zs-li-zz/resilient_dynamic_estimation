@@ -2,7 +2,7 @@
 
 We use an inverted pendulum for simulation, the physical parameters are shown in the following figure:
 
-<img src="/figs/inv_pen.png" width="480">
+<img src="/figs/invpen.png" width="480">
 
 Based on the knowledge of theoretical mechanics, one obtains the inverted pendulum system dynamic:
 
