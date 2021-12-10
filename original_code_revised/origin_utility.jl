@@ -263,7 +263,7 @@ function  solve_opt(ζ, γ, VERBOSE=1) # TODO ignore the unsymmetric of Pt
     problem = minimize(obj_fun, Pt*ζ==S*x+μ+ν, μ_new==D*μ ) #+ν
 
     # Solve the problem by calling solve!
-    @time solve!(problem, Mosek.Optimizer(), warmstart=true) #
+    @time solve!(problem, Mosek.Optimizer(), warmstart=true, silent_solver=true) #
     if problem.status == MathOptInterface.OPTIMAL #|| problem.status == MathOptInterface.ALMOST_OPTIMAL
         problem_status=true
     else
